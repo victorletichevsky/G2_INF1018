@@ -5,28 +5,62 @@
 #define TRUE 1
 #define FALSE 0
 
-#define ADD_VARIABLES_OPCODES {0x8B, 0x4d, 0x00, 0x01, 0x4d, 0x00} //checked
-#define SUB_VARIABLES_OPCODES {0x8b, 0x4d, 0x00, 0x29, 0x4d, 0x00} //checked
-#define MUL_VARIABLES_OPCODES {0x8b, 0x4d, 0x00, 0x8b, 0x55, 0x00, 0x0f, 0xaf, 0xd1, 0x89, 0x55, 0x00} //checked
+#define ADD_VARIABLES {0x8B, 0x4d, 0x00, 0x01, 0x4d, 0x00} //checked
+#define SUB_VARIABLES {0x8b, 0x4d, 0x00, 0x29, 0x4d, 0x00} //checked
+#define MUL_VARIABLES {0x8b, 0x4d, 0x00, 0x8b, 0x55, 0x00, 0x0f, 0xaf, 0xd1, 0x89, 0x55, 0x00} //checked
 
-#define ADD_VAR_PARAMETER_OPCODES {0x01, 0x75, 0x00} //checked
-#define SUB_VAR_PARAMETER_OPCODES {0x29, 0x75, 0x00} //checked
-#define MUL_VAR_X_PARAMETER_OPCODES {0x8b, 0x4d, 0x00, 0x0f, 0xaf, 0xcf, 0x89, 0x4d, 0x00} //var receives
-#define MUL_PARAMETER_X_VAR_OPCODES {0x0f, 0xaf, 0x7d, 0x00} //parameter receives
+#define ADD_PARAMETERS {0x01, 0x00}
+#define SUB_PARAMETERS {0x29, 0x00}
+#define MUL_PARAMETERS {0x0F, 0xAF, 0x00}
+
+#define ADD_CONST_PARAMETER {0x81, 0x00, 0x00, 0x00, 0x00, 0x00}
+#define SUB_CONST_PARAMETER {0x81, 0xEF, 0x00, 0x00, 0x00, 0x00}
+#define MUL_CONST_PARAMETER {0x69, 0xFF, 0x00, 0x00, 0x00, 0x00}
+
+#define ADD_VAR_PARAMETER {0x01, 0x75, 0x00} //checked
+#define SUB_VAR_PARAMETER {0x29, 0x75, 0x00} //checked
+#define MUL_VAR_X_PARAMETER {0x8b, 0x4d, 0x00, 0x0f, 0xaf, 0xcf, 0x89, 0x4d, 0x00} //var receives
+#define MUL_PARAMETER_X_VAR {0x0f, 0xaf, 0x7d, 0x00} //parameter receives
  
+union InsideInt {
+    int i;
+    unsigned char c[4];
+};
+
 void addVars(int lhs, int rhs);
 void subVars(int lhs, int rhs);
 void mulVars(int lhs, int rhs);
+
+void addParameters(int lhs);
+void subParameters(int lhs);
+void mulParameters(int lhs);
 
 void addVarParameter(int parameter, int var, int parameterReceives);
 void subVarParameter(int parameter, int var, int parameterReceives);
 void mulVarParameter(int parameter, int var, int parameterReceives);
 
-void addParameters(int lhs, int rhs);
-void subParameters(int lhs, int rhs);
-void mulParameters(int lhs, int rhs);
+void addConstParameter(int p, int c);
+void subConstParameter(int p, int c);
+void mulConstParameter(int p, int c);
 
 void printInstruction(unsigned char first[], int number);
+
+int main(void) {
+    addConstParameter(2, -1);
+    addConstParameter(1, -10);
+    addConstParameter(1, 256);
+    addConstParameter(1, -2048);
+    subConstParameter(2, -1);
+    subConstParameter(1, -10);
+    subConstParameter(1, 256);
+    subConstParameter(1, -2048);
+    mulConstParameter(2, -1);
+    mulConstParameter(1, -10);
+    mulConstParameter(1, 256);
+    mulConstParameter(1, -2048);
+    return 0;
+}
+
 
 //MARK: operações aritméticas variável-variável
 
@@ -44,7 +78,7 @@ void printInstruction(unsigned char first[], int number);
  */
 void addVars(int lhs, int rhs) {
     char receiver, added;
-    unsigned char instruction[6] = ADD_VARIABLES_OPCODES;
+    unsigned char instruction[6] = ADD_VARIABLES;
     receiver = (char)lhs;
     added = (char)rhs;
     receiver *= -4;
@@ -68,7 +102,7 @@ void addVars(int lhs, int rhs) {
  */
 void subVars(int lhs, int rhs) {
     char receiver, added;
-    unsigned char instruction[6] = SUB_VARIABLES_OPCODES;
+    unsigned char instruction[6] = SUB_VARIABLES;
     receiver = (char)lhs;
     added = (char)rhs;
     receiver *= -4;
@@ -89,7 +123,7 @@ void subVars(int lhs, int rhs) {
  */
 void mulVars(int lhs, int rhs) {
     char receiver, added;
-    unsigned char instruction[12] = MUL_VARIABLES_OPCODES;
+    unsigned char instruction[12] = MUL_VARIABLES;
     receiver = (char)lhs;
     added = (char)rhs;
     receiver *= -4;
@@ -114,7 +148,7 @@ void mulVars(int lhs, int rhs) {
  */
 
 void addVarParameter(int parameter, int var, int parameterReceives) {
-    unsigned char instruction[3] = ADD_VAR_PARAMETER_OPCODES;
+    unsigned char instruction[3] = ADD_VAR_PARAMETER;
     
     //definindo o primeiro byte da instrução
     if (parameterReceives) {
@@ -147,7 +181,7 @@ void addVarParameter(int parameter, int var, int parameterReceives) {
  */
 
 void subVarParameter(int parameter, int var, int parameterReceives) {
-    unsigned char instruction[3] = SUB_VAR_PARAMETER_OPCODES;
+    unsigned char instruction[3] = SUB_VAR_PARAMETER;
     
     //definindo o primeiro byte da instrução
     if (parameterReceives) {
@@ -196,8 +230,8 @@ void subVarParameter(int parameter, int var, int parameterReceives) {
 
 void mulVarParameter(int parameter, int var, int parameterReceives) {
     unsigned char *instructions;
-    unsigned char parReceivesInstructions[4] = MUL_PARAMETER_X_VAR_OPCODES;
-    unsigned char varReceivesInstructions[9] = MUL_VAR_X_PARAMETER_OPCODES;
+    unsigned char parReceivesInstructions[4] = MUL_PARAMETER_X_VAR;
+    unsigned char varReceivesInstructions[9] = MUL_VAR_X_PARAMETER;
     instructions = (parameterReceives) ? parReceivesInstructions : varReceivesInstructions;
     
     if (parameterReceives) {
@@ -213,31 +247,69 @@ void mulVarParameter(int parameter, int var, int parameterReceives) {
 
 //MARK: Operações aritméticas parâmetro-parâmetro
 
-void addParameters (int lhs, int rhs) {
-    unsigned char instructions[2];
+void addParameters (int lhs) {
+    unsigned char instructions[2] = ADD_PARAMETERS;
     if (lhs == 1) {
-        instructions = {0x01, 0xF7};
+        instructions[1] = 0xF7;
     } else {
-        instructions = {0x01, 0xFE};
+        instructions[1] = 0xFE;
     }
 }
 
-void subParameters(int lhs, int rhs) {
-    unsigned char instructions[2];
+void subParameters(int lhs) {
+    unsigned char instructions[2] = SUB_PARAMETERS;
     if (lhs == 1) {
-        instructions = {0x29, 0xF7};
+        instructions[1] = 0xF7;
     } else {
-        instructions = {0x29, 0xFE};
+        instructions[1] = 0xFE;
     }
 }
 
-void mulParameters(int lhs, int rhs) {
-    unsigned char instructions[2];
+void mulParameters(int lhs) {
+    unsigned char instructions[3] = MUL_PARAMETERS;
     if (lhs == 1) {
-        instructions = {0x0F, 0xAF, 0xFE};
+        instructions[2] = 0xFE;
     } else {
-        instructions = {0x0F, 0xAF, 0xF7};
+        instructions[2] = 0xF7;
     }
+}
+
+//MARK: Operações aritméticas parâmetro-constante
+
+void addConstParameter(int p, int c) {
+    int i = 0;
+    union InsideInt inside;
+    unsigned char instructions[6] = ADD_CONST_PARAMETER;
+    inside.i = c;
+    instructions[1] = (p == 1) ? 0xC7 : 0xC6;
+    for(i = 0; i < 4; i++) {
+        instructions[i + 2] = inside.c[i];
+    }
+    printInstruction(instructions, 6);
+}
+
+void subConstParameter(int p, int c) {
+    int i = 0;
+    union InsideInt inside;
+    unsigned char instructions[6] = SUB_CONST_PARAMETER;
+    inside.i = c;
+    if(p == 2) {instructions[1] = 0xEE;}
+    for(i = 0; i < 4; i++) {
+        instructions[i + 2] = inside.c[i];
+    }
+    printInstruction(instructions, 6);
+}
+
+void mulConstParameter(int p, int c) {
+    int i = 0;
+    union InsideInt inside;
+    unsigned char instructions[6] = MUL_CONST_PARAMETER;
+    inside.i = c;
+    if(p == 2) {instructions[1] = 0xF6;}
+    for(i = 0; i < 4; i++) {
+        instructions[i + 2] = inside.c[i];
+    }
+    printInstruction(instructions, 6);
 }
 
 //MARK: Demais auxiliares
