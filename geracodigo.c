@@ -22,6 +22,10 @@ void addVarParameter(int parameter, int var, int parameterReceives);
 void subVarParameter(int parameter, int var, int parameterReceives);
 void mulVarParameter(int parameter, int var, int parameterReceives);
 
+void addParameters(int lhs, int rhs);
+void subParameters(int lhs, int rhs);
+void mulParameters(int lhs, int rhs);
+
 void printInstruction(unsigned char first[], int number);
 
 //MARK: operações aritméticas variável-variável
@@ -205,6 +209,35 @@ void mulVarParameter(int parameter, int var, int parameterReceives) {
     }
     printInstruction(instructions, parameterReceives ? 4 : 9);
     
+}
+
+//MARK: Operações aritméticas parâmetro-parâmetro
+
+void addParameters (int lhs, int rhs) {
+    unsigned char instructions[2];
+    if (lhs == 1) {
+        instructions = {0x01, 0xF7};
+    } else {
+        instructions = {0x01, 0xFE};
+    }
+}
+
+void subParameters(int lhs, int rhs) {
+    unsigned char instructions[2];
+    if (lhs == 1) {
+        instructions = {0x29, 0xF7};
+    } else {
+        instructions = {0x29, 0xFE};
+    }
+}
+
+void mulParameters(int lhs, int rhs) {
+    unsigned char instructions[2];
+    if (lhs == 1) {
+        instructions = {0x0F, 0xAF, 0xFE};
+    } else {
+        instructions = {0x0F, 0xAF, 0xF7};
+    }
 }
 
 //MARK: Demais auxiliares
