@@ -44,20 +44,16 @@ void subConstParameter(int p, int c);
 void mulConstParameter(int p, int c);
 
 void printInstruction(unsigned char first[], int number);
+void appendInstructions(unsigned char **currInstruction, unsigned char newInstruction[], int nInstructions);
 
 int main(void) {
-    addConstParameter(2, -1);
-    addConstParameter(1, -10);
-    addConstParameter(1, 256);
-    addConstParameter(1, -2048);
-    subConstParameter(2, -1);
-    subConstParameter(1, -10);
-    subConstParameter(1, 256);
-    subConstParameter(1, -2048);
-    mulConstParameter(2, -1);
-    mulConstParameter(1, -10);
-    mulConstParameter(1, 256);
-    mulConstParameter(1, -2048);
+    unsigned char *instructions = (unsigned char*)malloc(9 * sizeof(char));
+    unsigned char *currInstruction = instructions;
+    unsigned char newInstructions[3] = {0x01, 0x02, 0x03};
+    unsigned char newInstructions2[4] = {0x04, 0x05, 0x06, 0x07};
+    appendInstructions(&currInstruction, newInstructions, 3);
+    appendInstructions(&currInstruction, newInstructions2, 4);
+    printInstruction(instructions, 9);
     return 0;
 }
 
@@ -313,6 +309,14 @@ void mulConstParameter(int p, int c) {
 }
 
 //MARK: Demais auxiliares
+
+void appendInstructions(unsigned char **currInstruction, unsigned char newInstruction[], int nInstructions) {
+    int i;
+    for (i = 0; i < nInstructions; i++) {
+        *(*currInstruction + i) = newInstruction[i];
+    }
+    *currInstruction += nInstructions;
+}
 
 void printInstruction(unsigned char first[], int number) {
     printf("{");
