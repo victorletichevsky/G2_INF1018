@@ -5,6 +5,7 @@
 #define TRUE 1
 #define FALSE 0
 
+//MARK: Opcodes aritméticos
 #define ADD_VARIABLES {0x8B, 0x4d, 0x00, 0x01, 0x4d, 0x00} //checked
 #define SUB_VARIABLES {0x8b, 0x4d, 0x00, 0x29, 0x4d, 0x00} //checked
 #define MUL_VARIABLES {0x8b, 0x4d, 0x00, 0x8b, 0x55, 0x00, 0x0f, 0xaf, 0xd1, 0x89, 0x55, 0x00} //checked
@@ -26,11 +27,19 @@
 #define MUL_VAR_X_PARAMETER {0x8b, 0x4d, 0x00, 0x0f, 0xaf, 0xcf, 0x89, 0x4d, 0x00} //var receives
 #define MUL_PARAMETER_X_VAR {0x0f, 0xaf, 0x7d, 0x00} //parameter receives
  
+//MARK: Opcodes de Retorno
+#define RETURN_PARAMETER {0x89, 0x00, 0xC3}
+#define RETURN_VAR {0x8B, 0x45, 0x00, 0xC3}
+#define RETURN_CONSTANT {0xB8, 0x00, 0x00, 0x00, 0x00, 0xC3}
+
+#define varIndexAsByte(index) (unsigned char)(-4 * index)
+
 union InsideInt {
     int i;
     unsigned char c[4];
 };
 
+//Headers das operações aritméticas
 void addVars(int lhs, int rhs);
 void subVars(int lhs, int rhs);
 void mulVars(int lhs, int rhs);
@@ -49,13 +58,16 @@ void mulConstParameter(int p, int c);
 
 void operateConstVar(int v, int c, char operation);
 
+//Operação de Retorno
+void returnValue(int vpc, char type);
+
 void printInstruction(unsigned char first[], int number);
 void appendInstructions(unsigned char **currInstruction, unsigned char newInstruction[], int nInstructions);
 
 int main(void) {
-    operateConstVar(1, 128, '+');
-    operateConstVar(2, -16, '-');
-    operateConstVar(3, 1024, '*');
+    returnValue(2048, '$');
+    returnValue(2, 'p');
+    returnValue(3, 'v');
     return 0;
 }
 
@@ -274,6 +286,10 @@ void mulParameters(int lhs) {
 
 //MARK: Operações aritméticas parâmetro-constante
 
+void operateConsrParameter(int p, int c, char operation) {
+    
+}
+
 void addConstParameter(int p, int c) {
     int i = 0;
     union InsideInt inside;
@@ -310,7 +326,7 @@ void mulConstParameter(int p, int c) {
     printInstruction(instructions, 6);
 }
 
-//MARK: Operações Aritméticas Variável-Constante
+//MARK: Operações Variável-Constante
 
 void operateConstVar(int v, int c, char operation) {
     int i, offset;
@@ -336,6 +352,39 @@ void operateConstVar(int v, int c, char operation) {
         instructions[i + offset] = inside.c[i];
     }
     printInstruction(instructions, (operation == '*') ? 12 : 7);
+}
+
+//MARK: Operacão de Retorno
+
+void returnValue(int vpc, char type) {
+    int instructionSize;
+    unsigned char *instructions;
+    unsigned char returnParameter[3] = RETURN_PARAMETER;
+    unsigned char returnVar[4] = RETURN_VAR;
+    unsigned char returnConst[6] = RETURN_CONSTANT;
+    switch (type) {
+            int i;
+            union InsideInt inside;
+    case 'v':
+        instructions = returnVar;
+        instructions[2] = (unsigned char)(-4 * vpc);
+        instructionSize = 4;
+        break;
+    case 'p':
+        instructions = returnParameter;
+        instructions[1] = (vpc == 1) ? 0xF8 : 0xF0;
+        instructionSize = 3;
+        break;
+    case '$':
+        inside.i = vpc;
+        instructions = returnConst;
+        instructionSize = 6;
+        for(i = 0; i < 4; i++) {
+            instructions[i + 1] = inside.c[i];
+        }
+        break;
+    }
+    printInstruction(instructions, instructionSize);
 }
 
 //MARK: Demais auxiliares
