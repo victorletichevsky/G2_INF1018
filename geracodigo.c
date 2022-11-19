@@ -17,6 +17,10 @@
 #define SUB_CONST_PARAMETER {0x81, 0xEF, 0x00, 0x00, 0x00, 0x00}
 #define MUL_CONST_PARAMETER {0x69, 0xFF, 0x00, 0x00, 0x00, 0x00}
 
+#define ADD_CONST_VAR {0x81, 0x45, 0xFC, 0x00, 0x00, 0x00, 0x00}
+#define SUB_CONST_VAR {0x81, 0x6D, 0xFC, 0x00, 0x00, 0x00, 0x00}
+#define MUL_CONST_VAR {0x8B, 0x4D, 0xFC, 0x69, 0xC9, 0x00, 0x00, 0x00, 0x00, 0x89, 0x4D, 0xFC}
+
 #define ADD_VAR_PARAMETER {0x01, 0x75, 0x00} //checked
 #define SUB_VAR_PARAMETER {0x29, 0x75, 0x00} //checked
 #define MUL_VAR_X_PARAMETER {0x8b, 0x4d, 0x00, 0x0f, 0xaf, 0xcf, 0x89, 0x4d, 0x00} //var receives
@@ -43,17 +47,15 @@ void addConstParameter(int p, int c);
 void subConstParameter(int p, int c);
 void mulConstParameter(int p, int c);
 
+void operateConstVar(int v, int c, char operation);
+
 void printInstruction(unsigned char first[], int number);
 void appendInstructions(unsigned char **currInstruction, unsigned char newInstruction[], int nInstructions);
 
 int main(void) {
-    unsigned char *instructions = (unsigned char*)malloc(9 * sizeof(char));
-    unsigned char *currInstruction = instructions;
-    unsigned char newInstructions[3] = {0x01, 0x02, 0x03};
-    unsigned char newInstructions2[4] = {0x04, 0x05, 0x06, 0x07};
-    appendInstructions(&currInstruction, newInstructions, 3);
-    appendInstructions(&currInstruction, newInstructions2, 4);
-    printInstruction(instructions, 9);
+    operateConstVar(1, 128, '+');
+    operateConstVar(2, -16, '-');
+    operateConstVar(3, 1024, '*');
     return 0;
 }
 
@@ -306,6 +308,34 @@ void mulConstParameter(int p, int c) {
         instructions[i + 2] = inside.c[i];
     }
     printInstruction(instructions, 6);
+}
+
+//MARK: Operações Aritméticas Variável-Constante
+
+void operateConstVar(int v, int c, char operation) {
+    int i, offset;
+    union InsideInt inside;
+    unsigned char *instructions;
+    unsigned char addSubOperations[7] = ADD_CONST_VAR;
+    unsigned char mulOperations[12] = MUL_CONST_VAR;
+    inside.i = c;
+    
+    if ( (operation == '+') || (operation == '-') ) {
+        instructions = addSubOperations;
+        instructions[1] = (operation == '+') ? 0x45 : 0x6D;
+        instructions[2] = (unsigned char)(-4 * v);
+        offset = 3;
+    } else if (operation == '*') {
+        instructions = mulOperations;
+        instructions[11] = (unsigned char)(-4 * v);
+        instructions[2] = (unsigned char)(-4 * v);
+        offset = 5;
+    }
+    
+    for (i = 0; i < 4; i++) {
+        instructions[i + offset] = inside.c[i];
+    }
+    printInstruction(instructions, (operation == '*') ? 12 : 7);
 }
 
 //MARK: Demais auxiliares
