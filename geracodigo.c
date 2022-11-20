@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "geracodigo.h"
 
 #define TRUE 1
 #define FALSE 0
@@ -26,7 +27,7 @@
 #define SUB_VAR_PARAMETER {0x29, 0x75, 0x00} //checked
 #define MUL_VAR_X_PARAMETER {0x8b, 0x4d, 0x00, 0x0f, 0xaf, 0xcf, 0x89, 0x4d, 0x00} //var receives
 #define MUL_PARAMETER_X_VAR {0x0f, 0xaf, 0x7d, 0x00} //parameter receives
- 
+
 //MARK: Opcodes de Retorno
 #define RETURN_PARAMETER {0x89, 0x00, 0xC3}
 #define RETURN_VAR {0x8B, 0x45, 0x00, 0xC3}
@@ -39,7 +40,10 @@ union InsideInt {
     unsigned char c[4];
 };
 
+static unsigned char* generatedInstructions;
+
 //Headers das operações aritméticas
+void operateVars(int lhs, int rhs, char op);
 void addVars(int lhs, int rhs);
 void subVars(int lhs, int rhs);
 void mulVars(int lhs, int rhs);
@@ -52,9 +56,7 @@ void addVarParameter(int parameter, int var, int parameterReceives);
 void subVarParameter(int parameter, int var, int parameterReceives);
 void mulVarParameter(int parameter, int var, int parameterReceives);
 
-void addConstParameter(int p, int c);
-void subConstParameter(int p, int c);
-void mulConstParameter(int p, int c);
+void operateConstParameter(int p, int c, char operation);
 
 void operateConstVar(int v, int c, char operation);
 
@@ -65,14 +67,89 @@ void printInstruction(unsigned char first[], int number);
 void appendInstructions(unsigned char **currInstruction, unsigned char newInstruction[], int nInstructions);
 
 int main(void) {
-    returnValue(2048, '$');
-    returnValue(2, 'p');
-    returnValue(3, 'v');
+//    imull $256, %edi
+//    imull $256, %esi
+//    addl $256, %edi
+//    addl $256, %esi
+//    subl $256, %edi
+//    subl $256, %esi
+    operateConstParameter(1, 256, '*');
+    operateConstParameter(2, 256, '*');
+    operateConstParameter(1, 256, '+');
+    operateConstParameter(2, 256, '+');
+    operateConstParameter(1, 256, '-');
+    operateConstParameter(2, 256, '-');
+}
+
+funcp geraCodigo (FILE *f, unsigned char codigo[]) {
+    unsigned char* currInstruction = codigo; //currInstruction vai apontar para o byte seguinte à última instrução adicionada
+    generatedInstructions = (unsigned char*)( malloc( 15 * sizeof(unsigned char) ) );
+    int line = 1;
+    int  c;
+    while ((c = fgetc(f)) != EOF) {
+        switch (c) {
+            case 'r': { /* retorno */
+                char var0;
+                int idx0;
+                if (fscanf(f, "et %c%d", &var0, &idx0) != 2)
+                    exit(1);
+                printf("%d ret %c%d\n", line, var0, idx0);
+                returnValue(idx0, var0);
+                break;
+            }
+            case 'v':
+            case 'p': { /* atribuiÃ§Ã£o e op. aritmetica */
+                char var0 = c, var1, op;
+                int idx0, idx1;
+                
+                if (fscanf(f, "%d %c= %c%d", &idx0, &op, &var1, &idx1) != 4)
+                    exit(1);
+                printf("%d %c%d %c= %c%d\n", line, var0, idx0, op, var1, idx1);
+                switch(op) {
+                    case ':':
+                        //TODO: Inserir aqui função de atribuição
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            }
+            case 'i': { /* desvio condicional */
+                char var0;
+                int idx0, n1, n2;
+                if (fscanf(f, "f %c%d %d %d", &var0, &idx0, &n1, &n2) != 4)
+                    exit(1);
+                printf("%d if %c%d %d %d\n", line, var0, idx0, n1, n2);
+                break;
+            }
+            case 'g': { /* desvio incondicional */
+                int n1;
+                if (fscanf(f, "o %d", &n1) != 1)
+                    exit(1);
+                printf("%d go %d\n", line, n1);
+                break;
+            }
+            default:  exit(1);
+        }
+        line ++;
+        fscanf(f, " ");
+    }
     return 0;
 }
 
 
 //MARK: operações aritméticas variável-variável
+
+void operateVars(int lhs, int rhs, char op) {
+    switch (op) {
+        case '*':
+            mulVars(lhs, rhs);
+        case '+':
+            addVars(lhs, rhs);
+        case '-':
+            subVars(lhs, rhs);
+    }
+}
 
 /**
  esta função gera o valor em opcode que correponde
@@ -286,45 +363,28 @@ void mulParameters(int lhs) {
 
 //MARK: Operações aritméticas parâmetro-constante
 
-void operateConsrParameter(int p, int c, char operation) {
-    
-}
-
-void addConstParameter(int p, int c) {
+void operateConstParameter(int p, int c, char operation) {
     int i = 0;
     union InsideInt inside;
     unsigned char instructions[6] = ADD_CONST_PARAMETER;
     inside.i = c;
-    instructions[1] = (p == 1) ? 0xC7 : 0xC6;
+    switch (operation) {
+        case '+':
+            instructions[1] = (p == 1) ? 0xC7 : 0xC6;
+            break;
+        case '-':
+            instructions[1] = (p == 1) ? 0xEF : 0xEE;
+            break;
+        case '*':
+            instructions[0] = 0x69;
+            instructions[1] = (p == 1) ? 0xFF :0xF6;
+    }
     for(i = 0; i < 4; i++) {
         instructions[i + 2] = inside.c[i];
     }
     printInstruction(instructions, 6);
 }
 
-void subConstParameter(int p, int c) {
-    int i = 0;
-    union InsideInt inside;
-    unsigned char instructions[6] = SUB_CONST_PARAMETER;
-    inside.i = c;
-    if(p == 2) {instructions[1] = 0xEE;}
-    for(i = 0; i < 4; i++) {
-        instructions[i + 2] = inside.c[i];
-    }
-    printInstruction(instructions, 6);
-}
-
-void mulConstParameter(int p, int c) {
-    int i = 0;
-    union InsideInt inside;
-    unsigned char instructions[6] = MUL_CONST_PARAMETER;
-    inside.i = c;
-    if(p == 2) {instructions[1] = 0xF6;}
-    for(i = 0; i < 4; i++) {
-        instructions[i + 2] = inside.c[i];
-    }
-    printInstruction(instructions, 6);
-}
 
 //MARK: Operações Variável-Constante
 
@@ -365,24 +425,24 @@ void returnValue(int vpc, char type) {
     switch (type) {
             int i;
             union InsideInt inside;
-    case 'v':
-        instructions = returnVar;
-        instructions[2] = (unsigned char)(-4 * vpc);
-        instructionSize = 4;
-        break;
-    case 'p':
-        instructions = returnParameter;
-        instructions[1] = (vpc == 1) ? 0xF8 : 0xF0;
-        instructionSize = 3;
-        break;
-    case '$':
-        inside.i = vpc;
-        instructions = returnConst;
-        instructionSize = 6;
-        for(i = 0; i < 4; i++) {
-            instructions[i + 1] = inside.c[i];
-        }
-        break;
+        case 'v':
+            instructions = returnVar;
+            instructions[2] = (unsigned char)(-4 * vpc);
+            instructionSize = 4;
+            break;
+        case 'p':
+            instructions = returnParameter;
+            instructions[1] = (vpc == 1) ? 0xF8 : 0xF0;
+            instructionSize = 3;
+            break;
+        case '$':
+            inside.i = vpc;
+            instructions = returnConst;
+            instructionSize = 6;
+            for(i = 0; i < 4; i++) {
+                instructions[i + 1] = inside.c[i];
+            }
+            break;
     }
     printInstruction(instructions, instructionSize);
 }
