@@ -35,17 +35,12 @@
 
 #define varIndexAsByte(index) (unsigned char)(-4 * index)
 
+static unsigned char* currentInstruction;
+
 union InsideInt {
     int i;
     unsigned char c[4];
 };
-
-struct Line {
-    int lineNumber;
-    int instructionSize;
-};
-
-static unsigned char* generatedInstructions;
 
 //Headers das operações aritméticas
 void operate(char varp, int idx0, char varpc, int idx1, char operation);
@@ -76,10 +71,11 @@ void printInstruction(unsigned char first[], int number);
 void appendInstructions(unsigned char **currInstruction, unsigned char newInstruction[], int nInstructions);
 
 funcp geraCodigo (FILE *f, unsigned char codigo[]) {
-    unsigned char* currInstruction = codigo; //currInstruction vai apontar para o byte seguinte à última instrução adicionada
-    generatedInstructions = (unsigned char*)( malloc( 15 * sizeof(unsigned char) ) );
+    currentInstruction = codigo; //currInstruction vai apontar para o byte seguinte à última instrução adicionada
+    unsigned char* lastInstruction = codigo;
     int line = 1;
     int  c;
+    int lineOperationSizes[20];
     while ((c = fgetc(f)) != EOF) {
         switch (c) {
             case 'r': { /* retorno */
@@ -124,6 +120,8 @@ funcp geraCodigo (FILE *f, unsigned char codigo[]) {
             }
             default:  exit(1);
         }
+        lineOperationSizes[line - 1] = (long)currentInstruction - (long)lastInstruction;
+        lastInstruction = currentInstruction;
         line ++;
         fscanf(f, " ");
     }
@@ -181,14 +179,15 @@ void operateVars(int lhs, int rhs, char operation) {
  */
 void addVars(int lhs, int rhs) {
     char receiver, added;
-    unsigned char instruction[6] = ADD_VARIABLES;
+    unsigned char instructions[6] = ADD_VARIABLES;
     receiver = (char)lhs;
     added = (char)rhs;
     receiver *= -4;
     added *= -4;
-    instruction[5] = receiver;
-    instruction [2] = added;
-    printInstruction(instruction, 6);
+    instructions[5] = receiver;
+    instructions [2] = added;
+    printInstruction(instructions, 6);
+    appendInstructions(&currentInstruction, instructions, 6);
 }
 
 /**
@@ -205,14 +204,15 @@ void addVars(int lhs, int rhs) {
  */
 void subVars(int lhs, int rhs) {
     char receiver, added;
-    unsigned char instruction[6] = SUB_VARIABLES;
+    unsigned char instructions[6] = SUB_VARIABLES;
     receiver = (char)lhs;
     added = (char)rhs;
     receiver *= -4;
     added *= -4;
-    instruction[5] = receiver;
-    instruction [2] = added;
-    printInstruction(instruction, 6);
+    instructions[5] = receiver;
+    instructions [2] = added;
+    printInstruction(instructions, 6);
+    appendInstructions(&currentInstruction, instructions, 6);
 }
 
 /**
@@ -226,15 +226,16 @@ void subVars(int lhs, int rhs) {
  */
 void mulVars(int lhs, int rhs) {
     char receiver, added;
-    unsigned char instruction[12] = MUL_VARIABLES;
+    unsigned char instructions[12] = MUL_VARIABLES;
     receiver = (char)lhs;
     added = (char)rhs;
     receiver *= -4;
     added *= -4;
-    instruction[11] = receiver;
-    instruction[5] = receiver;
-    instruction[2] = added;
-    printInstruction(instruction, 12);
+    instructions[11] = receiver;
+    instructions[5] = receiver;
+    instructions[2] = added;
+    printInstruction(instructions, 12);
+    appendInstructions(&currentInstruction, instructions, 12);
 }
 
 //MARK: operações aritméticas parâmetro-variável
@@ -264,25 +265,26 @@ void operateVarParameter(int parameter, int var, int parameterReceives, char ope
  */
 
 void addVarParameter(int parameter, int var, int parameterReceives) {
-    unsigned char instruction[3] = ADD_VAR_PARAMETER;
+    unsigned char instructions[3] = ADD_VAR_PARAMETER;
     
     //definindo o primeiro byte da instrução
     if (parameterReceives) {
-        instruction[0] = 0x03;
+        instructions[0] = 0x03;
     } else {
-        instruction[0] = 0x01;
+        instructions[0] = 0x01;
     }
     
     //definindo o segundo byte da instrução
     if (parameter == 1) {
-        instruction[1] = 0x7D;
+        instructions[1] = 0x7D;
     } else if (parameter == 2) {
-        instruction[2] = 0x75;
+        instructions[2] = 0x75;
     }
     
     //definindo o terceiro byte da instrução
-    instruction[2] = (unsigned char)(-4 * var);
-    printInstruction(instruction, 3);
+    instructions[2] = (unsigned char)(-4 * var);
+    printInstruction(instructions, 3);
+    appendInstructions(&currentInstruction, instructions, 3);
 }
 
 /**
@@ -297,26 +299,26 @@ void addVarParameter(int parameter, int var, int parameterReceives) {
  */
 
 void subVarParameter(int parameter, int var, int parameterReceives) {
-    unsigned char instruction[3] = SUB_VAR_PARAMETER;
+    unsigned char instructions[3] = SUB_VAR_PARAMETER;
     
     //definindo o primeiro byte da instrução
     if (parameterReceives) {
-        instruction[0] = 0x2B;
+        instructions[0] = 0x2B;
     } else {
-        instruction[0] = 0x29;
+        instructions[0] = 0x29;
     }
     
     //definindo o segundo byte da instrução
     if (parameter == 1) {
-        instruction[1] = 0x7D;
+        instructions[1] = 0x7D;
     } else {
-        instruction[1] = 0x75;
+        instructions[1] = 0x75;
     }
     
     //definindo o último byte da instrução
-    instruction[2] = (unsigned char)(-4 * var);
-    printInstruction(instruction, 3);
-    
+    instructions[2] = (unsigned char)(-4 * var);
+    printInstruction(instructions, 3);
+    appendInstructions(&currentInstruction, instructions, 3);
 }
 
 /**
@@ -358,6 +360,7 @@ void mulVarParameter(int parameter, int var, int parameterReceives) {
         instructions[5] = (parameter == 1) ? 0xCF : 0xCE;
     }
     printInstruction(instructions, parameterReceives ? 4 : 9);
+    appendInstructions(&currentInstruction, instructions, parameterReceives ? 4 : 9);
     
 }
 
@@ -384,6 +387,7 @@ void addParameters (int lhs, int rhs) {
         instructions[1] = (rhs == 1) ? 0xFE : 0xF6;
     }
     printInstruction(instructions, 2);
+    appendInstructions(&currentInstruction, instructions, 2);
 }
 
 void subParameters(int lhs, int rhs) {
@@ -394,6 +398,7 @@ void subParameters(int lhs, int rhs) {
         instructions[1] = (rhs == 1) ? 0xFE : 0xF6;
     }
     printInstruction(instructions, 2);
+    appendInstructions(&currentInstruction, instructions, 2);
 }
 
 void mulParameters(int lhs, int rhs) {
@@ -404,6 +409,7 @@ void mulParameters(int lhs, int rhs) {
         instructions[2] = (rhs == 1) ? 0xF7 : 0xF6;
     }
     printInstruction(instructions, 3);
+    appendInstructions(&currentInstruction, instructions, 3);
 }
 
 //MARK: Operações aritméticas parâmetro-constante
@@ -428,6 +434,7 @@ void operateConstParameter(int p, int c, char operation) {
         instructions[i + 2] = inside.c[i];
     }
     printInstruction(instructions, 6);
+    appendInstructions(&currentInstruction, instructions, 6);
 }
 
 
@@ -457,7 +464,10 @@ void operateConstVar(int v, int c, char operation) {
         instructions[i + offset] = inside.c[i];
     }
     printInstruction(instructions, (operation == '*') ? 12 : 7);
+    appendInstructions(&currentInstruction, instructions, (operation == '*') ? 12 : 7);
 }
+
+//MARK: Operações de Atribuição
 
 //MARK: Operacão de Retorno
 
@@ -490,6 +500,7 @@ void returnValue(int vpc, char type) {
             break;
     }
     printInstruction(instructions, instructionSize);
+    appendInstructions(&currentInstruction, instructions, instructionSize);
 }
 
 //MARK: Demais auxiliares
