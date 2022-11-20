@@ -48,40 +48,38 @@ struct Line {
 static unsigned char* generatedInstructions;
 
 //Headers das operações aritméticas
-int operate(char varp, int idx0, char varpc, int idx1, char operation);
+void operate(char varp, int idx0, char varpc, int idx1, char operation);
 
-int operateVars(int lhs, int rhs, char operation);
-int addVars(int lhs, int rhs);
-int subVars(int lhs, int rhs);
-int mulVars(int lhs, int rhs);
+void operateVars(int lhs, int rhs, char operation);
+void addVars(int lhs, int rhs);
+void subVars(int lhs, int rhs);
+void mulVars(int lhs, int rhs);
 
-int operateParameters(int lhs, int rhs, char operation);
-int addParameters(int lhs, int rhs);
-int subParameters(int lhs, int rhs);
-int mulParameters(int lhs, int rhs);
+void operateParameters(int lhs, char operation);
+void addParameters(int lhs);
+void subParameters(int lhs);
+void mulParameters(int lhs);
 
-int operateVarParameter(int parameter, int var, int parameterReceives, char operation);
-int addVarParameter(int parameter, int var, int parameterReceives);
-int subVarParameter(int parameter, int var, int parameterReceives);
-int mulVarParameter(int parameter, int var, int parameterReceives);
+void operateVarParameter(int parameter, int var, int parameterReceives, char operation);
+void addVarParameter(int parameter, int var, int parameterReceives);
+void subVarParameter(int parameter, int var, int parameterReceives);
+void mulVarParameter(int parameter, int var, int parameterReceives);
 
-int operateConstParameter(int p, int c, char operation);
+void operateConstParameter(int p, int c, char operation);
 
-int operateConstVar(int v, int c, char operation);
+void operateConstVar(int v, int c, char operation);
 
 //Operação de Retorno
-int returnValue(int vpc, char type);
+void returnValue(int vpc, char type);
 
 void printInstruction(unsigned char first[], int number);
 void appendInstructions(unsigned char **currInstruction, unsigned char newInstruction[], int nInstructions);
 
 funcp geraCodigo (FILE *f, unsigned char codigo[]) {
-    struct Line lines[20];
     unsigned char* currInstruction = codigo; //currInstruction vai apontar para o byte seguinte à última instrução adicionada
+    generatedInstructions = (unsigned char*)( malloc( 15 * sizeof(unsigned char) ) );
     int line = 1;
     int  c;
-    int currInstructionSize;
-    generatedInstructions = (unsigned char*)( malloc( 15 * sizeof(unsigned char) ) );
     while ((c = fgetc(f)) != EOF) {
         switch (c) {
             case 'r': { /* retorno */
@@ -134,36 +132,38 @@ funcp geraCodigo (FILE *f, unsigned char codigo[]) {
 
 
 //MARK: Operação aritmética geral
-int operate(char varp, int idx0, char varpc, int idx1, char operation) {
+void operate(char varp, int idx0, char varpc, int idx1, char operation) {
     if (varp == 'v') {
         if(varpc == 'p') {
-            return operateVarParameter(idx1, idx0, FALSE, operation);
+            operateVarParameter(idx1, idx0, FALSE, operation);
         } else if (varpc == 'v') {
-            return operateVars(idx0, idx1, operation);
+            operateVars(idx0, idx1, operation);
         } else {
-            return operateConstVar(idx0, idx1, operation);
+            operateConstVar(idx0, idx1, operation);
         }
     } else {
         if(varpc == 'v') {
-            return operateVarParameter(idx0, idx1, TRUE, operation);
+            operateVarParameter(idx0, idx1, TRUE, operation);
         } else if (varpc == 'p') {
-            return operateParameters(idx0, idx1, operation);
+            operateParameters(idx0, operation);
         } else {
-            return operateConstParameter(idx0, idx1, operation);
+            operateConstParameter(idx0, idx1, operation);
         }
     }
 }
 
 //MARK: operações aritméticas variável-variável
 
-int operateVars(int lhs, int rhs, char operation) {
+void operateVars(int lhs, int rhs, char operation) {
     switch (operation) {
         case '*':
-            return mulVars(lhs, rhs);
+            mulVars(lhs, rhs);
+            break;
         case '+':
-            return addVars(lhs, rhs);
+            addVars(lhs, rhs);
+            break;
         case '-':
-            return subVars(lhs, rhs);
+            subVars(lhs, rhs);
     }
 }
 
@@ -179,7 +179,7 @@ int operateVars(int lhs, int rhs, char operation) {
  movl -4rhs(%rbp), %ecx
  add %ecx, -4lhs(%rbp)
  */
-int addVars(int lhs, int rhs) {
+void addVars(int lhs, int rhs) {
     char receiver, added;
     unsigned char instruction[6] = ADD_VARIABLES;
     receiver = (char)lhs;
@@ -189,7 +189,6 @@ int addVars(int lhs, int rhs) {
     instruction[5] = receiver;
     instruction [2] = added;
     printInstruction(instruction, 6);
-    return 6;
 }
 
 /**
@@ -204,7 +203,7 @@ int addVars(int lhs, int rhs) {
  movl -4rhs(%rbp), %ecx
  sub %ecx, -4lhs(%rbp)
  */
-int subVars(int lhs, int rhs) {
+void subVars(int lhs, int rhs) {
     char receiver, added;
     unsigned char instruction[6] = SUB_VARIABLES;
     receiver = (char)lhs;
@@ -214,7 +213,6 @@ int subVars(int lhs, int rhs) {
     instruction[5] = receiver;
     instruction [2] = added;
     printInstruction(instruction, 6);
-    return 6;
 }
 
 /**
@@ -226,7 +224,7 @@ int subVars(int lhs, int rhs) {
  
  esse código multiplica os valores das variáveis de índice lhs e rhs, e joga o resultado em lhs
  */
-int mulVars(int lhs, int rhs) {
+void mulVars(int lhs, int rhs) {
     char receiver, added;
     unsigned char instruction[12] = MUL_VARIABLES;
     receiver = (char)lhs;
@@ -237,19 +235,20 @@ int mulVars(int lhs, int rhs) {
     instruction[5] = receiver;
     instruction[2] = added;
     printInstruction(instruction, 12);
-    return 12;
 }
 
 //MARK: operações aritméticas parâmetro-variável
 
-int operateVarParameter(int parameter, int var, int parameterReceives, char operation) {
+void operateVarParameter(int parameter, int var, int parameterReceives, char operation) {
     switch (operation) {
         case '+':
-            return addVarParameter(parameter, var, parameterReceives);
+            addVarParameter(parameter, var, parameterReceives);
+            break;
         case '-':
-            return subVarParameter(parameter, var, parameterReceives);
+            subVarParameter(parameter, var, parameterReceives);
+            break;
         case '*':
-            return mulVarParameter(parameter, var, parameterReceives);
+            mulVarParameter(parameter, var, parameterReceives);
     }
 }
 
@@ -264,7 +263,7 @@ int operateVarParameter(int parameter, int var, int parameterReceives, char oper
  Por fim, observou-se que o último byte da instrução é igual ao valor em complemento de 2 de -4v, onde v é o índice da variável local envolvida
  */
 
-int addVarParameter(int parameter, int var, int parameterReceives) {
+void addVarParameter(int parameter, int var, int parameterReceives) {
     unsigned char instruction[3] = ADD_VAR_PARAMETER;
     
     //definindo o primeiro byte da instrução
@@ -284,7 +283,6 @@ int addVarParameter(int parameter, int var, int parameterReceives) {
     //definindo o terceiro byte da instrução
     instruction[2] = (unsigned char)(-4 * var);
     printInstruction(instruction, 3);
-    return 3;
 }
 
 /**
@@ -298,7 +296,7 @@ int addVarParameter(int parameter, int var, int parameterReceives) {
  Por fim, o último byte é o complemento de dois de -4v, onde v é o índice da variável
  */
 
-int subVarParameter(int parameter, int var, int parameterReceives) {
+void subVarParameter(int parameter, int var, int parameterReceives) {
     unsigned char instruction[3] = SUB_VAR_PARAMETER;
     
     //definindo o primeiro byte da instrução
@@ -318,7 +316,6 @@ int subVarParameter(int parameter, int var, int parameterReceives) {
     //definindo o último byte da instrução
     instruction[2] = (unsigned char)(-4 * var);
     printInstruction(instruction, 3);
-    return 3;
     
 }
 
@@ -347,8 +344,7 @@ int subVarParameter(int parameter, int var, int parameterReceives) {
  
  */
 
-int mulVarParameter(int parameter, int var, int parameterReceives) {
-    int instructionSize;
+void mulVarParameter(int parameter, int var, int parameterReceives) {
     unsigned char *instructions;
     unsigned char parReceivesInstructions[4] = MUL_PARAMETER_X_VAR;
     unsigned char varReceivesInstructions[9] = MUL_VAR_X_PARAMETER;
@@ -357,65 +353,59 @@ int mulVarParameter(int parameter, int var, int parameterReceives) {
     if (parameterReceives) {
         instructions[3] = (unsigned char)(-4 * var);
         instructions[2] = (parameter == 2) ? 0x75 : 0x7D;
-        instructionSize = 4;
     } else {
         instructions[2] = instructions[7] = (unsigned char)(-4 * var);
         instructions[5] = (parameter == 1) ? 0xCF : 0xCE;
-        instructionSize = 9;
     }
-    printInstruction(instructions, instructionSize);
-    return instructionSize;
+    printInstruction(instructions, parameterReceives ? 4 : 9);
+    
 }
 
 //MARK: Operações aritméticas parâmetro-parâmetro
 
-int operateParameters(int lhs, int rhs, char operation) {
+void operateParameters(int lhs, char operation) {
     switch (operation) {
         case '+':
-            return addParameters(lhs, rhs);
+            addParameters(lhs);
+            break;
         case '-':
-            return subParameters(lhs, rhs);
+            subParameters(lhs);
+            break;
         case '*':
-            return mulParameters(lhs, rhs);
+            mulParameters(lhs);
     }
 }
 
-int addParameters (int lhs, int rhs) {
+void addParameters (int lhs) {
     unsigned char instructions[2] = ADD_PARAMETERS;
-    if (rhs == 2) {
+    if (lhs == 1) {
         instructions[1] = 0xF7;
     } else {
         instructions[1] = 0xFE;
     }
-    printInstruction(instructions, 2);
-    return 2;
 }
 
-int subParameters(int lhs, int rhs) {
+void subParameters(int lhs) {
     unsigned char instructions[2] = SUB_PARAMETERS;
-    if (rhs == 2) {
+    if (lhs == 1) {
         instructions[1] = 0xF7;
     } else {
         instructions[1] = 0xFE;
     }
-    printInstruction(instructions, 2);
-    return 2;
 }
 
-int mulParameters(int lhs, int rhs) {
+void mulParameters(int lhs) {
     unsigned char instructions[3] = MUL_PARAMETERS;
-    if (rhs == 2) {
+    if (lhs == 1) {
         instructions[2] = 0xFE;
     } else {
         instructions[2] = 0xF7;
     }
-    printInstruction(instructions, 3);
-    return 3;
 }
 
 //MARK: Operações aritméticas parâmetro-constante
 
-int operateConstParameter(int p, int c, char operation) {
+void operateConstParameter(int p, int c, char operation) {
     int i = 0;
     union InsideInt inside;
     unsigned char instructions[6] = ADD_CONST_PARAMETER;
@@ -435,14 +425,13 @@ int operateConstParameter(int p, int c, char operation) {
         instructions[i + 2] = inside.c[i];
     }
     printInstruction(instructions, 6);
-    return 6;
 }
 
 
 //MARK: Operações Variável-Constante
 
-int operateConstVar(int v, int c, char operation) {
-    int i, offset, instructionSize;
+void operateConstVar(int v, int c, char operation) {
+    int i, offset;
     union InsideInt inside;
     unsigned char *instructions;
     unsigned char addSubOperations[7] = ADD_CONST_VAR;
@@ -454,26 +443,22 @@ int operateConstVar(int v, int c, char operation) {
         instructions[1] = (operation == '+') ? 0x45 : 0x6D;
         instructions[2] = (unsigned char)(-4 * v);
         offset = 3;
-        instructionSize = 7;
     } else if (operation == '*') {
         instructions = mulOperations;
         instructions[11] = (unsigned char)(-4 * v);
         instructions[2] = (unsigned char)(-4 * v);
         offset = 5;
-        instructionSize = 12;
     }
     
     for (i = 0; i < 4; i++) {
         instructions[i + offset] = inside.c[i];
     }
-    printInstruction(instructions, instructionSize);
-    return instructionSize;
-    
+    printInstruction(instructions, (operation == '*') ? 12 : 7);
 }
 
 //MARK: Operacão de Retorno
 
-int returnValue(int vpc, char type) {
+void returnValue(int vpc, char type) {
     int instructionSize;
     unsigned char *instructions;
     unsigned char returnParameter[3] = RETURN_PARAMETER;
@@ -502,7 +487,6 @@ int returnValue(int vpc, char type) {
             break;
     }
     printInstruction(instructions, instructionSize);
-    return instructionSize;
 }
 
 //MARK: Demais auxiliares
