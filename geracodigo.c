@@ -6,7 +6,7 @@
 #define TRUE 1
 #define FALSE 0
 
-//MARK: Opcodes aritméticos
+//MARK: Opcodes Aritméticos
 #define ADD_VARIABLES {0x8B, 0x4d, 0x00, 0x01, 0x4d, 0x00} //checked
 #define SUB_VARIABLES {0x8B, 0x4d, 0x00, 0x29, 0x4d, 0x00} //checked
 #define MUL_VARIABLES {0x8B, 0x4d, 0x00, 0x8b, 0x55, 0x00, 0x0f, 0xaf, 0xd1, 0x89, 0x55, 0x00} //checked
@@ -32,6 +32,14 @@
 #define RETURN_PARAMETER {0x89, 0x00, 0xC3}
 #define RETURN_VAR {0x8B, 0x45, 0x00, 0xC3}
 #define RETURN_CONSTANT {0xB8, 0x00, 0x00, 0x00, 0x00, 0xC3}
+
+//MARK: Opcodes de Atribuição
+#define ATT_VAR_TO_PARAM {0x8B, 0x7D, 0x00}
+#define ATT_PARAM_TO_PARAM {0X89, 0X00}
+#define ATT_CONST_TO_PARAM {0xBE, 0x00, 0x00, 0x00, 0x00}
+#define ATT_VAR_TO_VAR {0x8B, 0x4D, 0x00, 0x89, 0x4D, 0x00}
+#define ATT_PARAM_TO_VAR {0x89, 0x7D, 0x00}
+#define ATT_CONST_TO_VAR {0xC7, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00}
 
 #define varIndexAsByte(index) (unsigned char)(-4 * index)
 
@@ -67,6 +75,16 @@ void operateConstVar(int v, int c, char operation);
 //Operação de Retorno
 void returnValue(int vpc, char type);
 
+//Operações de Atribuição
+void attribute(char varp, int idx0, char varpc, int idx1);
+void attVarToParam(int param, int var);
+void attParamToParam(int lhs, int rhs);
+void attConstToParam(int lhs, int rhs);
+void attVarToVar(int lhs, int rhs);
+void attParamToVar(int lhs, int rhs);
+void attConstToVar(int lhs, int rhs);
+
+//Auxiliares
 void printInstruction(unsigned char first[], int number);
 void appendInstructions(unsigned char **currInstruction, unsigned char newInstruction[], int nInstructions);
 
@@ -96,7 +114,7 @@ funcp geraCodigo (FILE *f, unsigned char codigo[]) {
                     exit(1);
                 printf("%d %c%d %c= %c%d\n", line, var0, idx0, op, var1, idx1);
                 if (op == ':') {
-                    //TODO: Implementar operações de atribuição
+                    attribute(var0, idx0, var1, idx1);
                 } else {
                     operate(var0, idx0, var1, idx1, op);
                 }
@@ -468,6 +486,87 @@ void operateConstVar(int v, int c, char operation) {
 }
 
 //MARK: Operações de Atribuição
+
+void attribute(char varp, int idx0, char varpc, int idx1) {
+    if (varp == 'v') {
+        if (varpc == 'v') {
+            attVarToVar(idx0, idx1);
+        } else if (varpc == 'p') {
+            attParamToVar(idx0, idx1);
+        } else {
+            attConstToVar(idx0, idx1);
+        }
+    } else {
+        if (varpc == 'v') {
+            attVarToParam(idx0, idx1);
+        } else if (varpc == 'p') {
+            attParamToParam(idx0, idx1);
+        } else {
+            attConstToParam(idx0, idx1);
+        }
+    }
+}
+
+void attVarToParam(int param, int var) {
+    unsigned char instructions[3] = ATT_VAR_TO_PARAM;
+    instructions[2] = (unsigned char)(-4 * var);
+    instructions[1] = (param == 1) ? 0x7D : 0x75;
+    printInstruction(instructions, 3);
+    appendInstructions(&currentInstruction, instructions, 3);
+}
+
+void attParamToParam(int lhs, int rhs) {
+    unsigned char instructions[2] = ATT_PARAM_TO_PARAM;
+    if (lhs == 1) {
+        instructions[1] = (rhs == 1) ? 0xFF : 0xF7;
+    } else {
+        instructions[1] = (rhs == 1) ? 0xFE : 0xF6;
+    }
+    printInstruction(instructions, 2);
+    appendInstructions(&currentInstruction, instructions, 2);
+}
+
+void attConstToParam(int param, int c) {
+    int i;
+    union InsideInt inside;
+    unsigned char instructions[5] = ATT_CONST_TO_PARAM;
+    inside.i = c;
+    instructions[0] = (param == 1) ? 0xBF : 0xBE;
+    for (i = 0; i < 4; i++) {
+        instructions[i + 1] = inside.c[i];
+    }
+    printInstruction(instructions, 5);
+    appendInstructions(&currentInstruction, instructions, 5);
+}
+
+void attVarToVar(int lhs, int rhs) {
+    unsigned char instructions[6] = ATT_VAR_TO_VAR;
+    instructions[2] = (unsigned char)(-4 * rhs);
+    instructions[5] = (unsigned char)(-4 * lhs);
+    printInstruction(instructions, 6);
+    appendInstructions(&currentInstruction, instructions, 6);
+}
+
+void attParamToVar(int var, int param) {
+    unsigned char instructions[3] = ATT_PARAM_TO_VAR;
+    instructions[1] = (param == 1) ? 0x7D : 0x75;
+    instructions[2] = (unsigned char)(-4 * var);
+    printInstruction(instructions, 3);
+    appendInstructions(&currentInstruction, instructions, 3);
+}
+
+void attConstToVar(int var, int c) {
+    int i;
+    union InsideInt inside;
+    unsigned char instructions[7] = ATT_CONST_TO_VAR;
+    inside.i = c;
+    instructions[2] = (unsigned char)(-4 * var);
+    for(i = 0; i < 7; i++) {
+        instructions[3 + i] = inside.c[i];
+    }
+    printInstruction(instructions, 7);
+    appendInstructions(&currentInstruction, instructions, 7);
+}
 
 //MARK: Operacão de Retorno
 
