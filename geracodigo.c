@@ -55,10 +55,10 @@ void addVars(int lhs, int rhs);
 void subVars(int lhs, int rhs);
 void mulVars(int lhs, int rhs);
 
-void operateParameters(int lhs, char operation);
-void addParameters(int lhs);
-void subParameters(int lhs);
-void mulParameters(int lhs);
+void operateParameters(int lhs, int rhs, char operation);
+void addParameters(int lhs, int rhs);
+void subParameters(int lhs, int rhs);
+void mulParameters(int lhs, int rhs);
 
 void operateVarParameter(int parameter, int var, int parameterReceives, char operation);
 void addVarParameter(int parameter, int var, int parameterReceives);
@@ -145,7 +145,7 @@ void operate(char varp, int idx0, char varpc, int idx1, char operation) {
         if(varpc == 'v') {
             operateVarParameter(idx0, idx1, TRUE, operation);
         } else if (varpc == 'p') {
-            operateParameters(idx0, operation);
+            operateParameters(idx0, idx1, operation);
         } else {
             operateConstParameter(idx0, idx1, operation);
         }
@@ -354,7 +354,7 @@ void mulVarParameter(int parameter, int var, int parameterReceives) {
         instructions[3] = (unsigned char)(-4 * var);
         instructions[2] = (parameter == 2) ? 0x75 : 0x7D;
     } else {
-        instructions[2] = instructions[7] = (unsigned char)(-4 * var);
+        instructions[2] = instructions[8] = (unsigned char)(-4 * var);
         instructions[5] = (parameter == 1) ? 0xCF : 0xCE;
     }
     printInstruction(instructions, parameterReceives ? 4 : 9);
@@ -363,44 +363,47 @@ void mulVarParameter(int parameter, int var, int parameterReceives) {
 
 //MARK: Operações aritméticas parâmetro-parâmetro
 
-void operateParameters(int lhs, char operation) {
+void operateParameters(int lhs, int rhs, char operation) {
     switch (operation) {
         case '+':
-            addParameters(lhs);
+            addParameters(lhs, rhs);
             break;
         case '-':
-            subParameters(lhs);
+            subParameters(lhs, rhs);
             break;
         case '*':
-            mulParameters(lhs);
+            mulParameters(lhs, rhs);
     }
 }
 
-void addParameters (int lhs) {
+void addParameters (int lhs, int rhs) {
     unsigned char instructions[2] = ADD_PARAMETERS;
     if (lhs == 1) {
-        instructions[1] = 0xF7;
+        instructions[1] = (rhs == 1) ? 0xFF : 0xF7;
     } else {
-        instructions[1] = 0xFE;
+        instructions[1] = (rhs == 1) ? 0xFE : 0xF6;
     }
+    printInstruction(instructions, 2);
 }
 
-void subParameters(int lhs) {
+void subParameters(int lhs, int rhs) {
     unsigned char instructions[2] = SUB_PARAMETERS;
     if (lhs == 1) {
-        instructions[1] = 0xF7;
+        instructions[1] = (rhs == 1) ? 0xFF : 0xF7;
     } else {
-        instructions[1] = 0xFE;
+        instructions[1] = (rhs == 1) ? 0xFE : 0xF6;
     }
+    printInstruction(instructions, 2);
 }
 
-void mulParameters(int lhs) {
+void mulParameters(int lhs, int rhs) {
     unsigned char instructions[3] = MUL_PARAMETERS;
     if (lhs == 1) {
-        instructions[2] = 0xFE;
+        instructions[2] = (rhs == 1) ? 0xFF : 0xFE;
     } else {
-        instructions[2] = 0xF7;
+        instructions[2] = (rhs == 1) ? 0xF7 : 0xF6;
     }
+    printInstruction(instructions, 3);
 }
 
 //MARK: Operações aritméticas parâmetro-constante
