@@ -8,8 +8,8 @@
 
 //MARK: Opcodes aritméticos
 #define ADD_VARIABLES {0x8B, 0x4d, 0x00, 0x01, 0x4d, 0x00} //checked
-#define SUB_VARIABLES {0x8b, 0x4d, 0x00, 0x29, 0x4d, 0x00} //checked
-#define MUL_VARIABLES {0x8b, 0x4d, 0x00, 0x8b, 0x55, 0x00, 0x0f, 0xaf, 0xd1, 0x89, 0x55, 0x00} //checked
+#define SUB_VARIABLES {0x8B, 0x4d, 0x00, 0x29, 0x4d, 0x00} //checked
+#define MUL_VARIABLES {0x8B, 0x4d, 0x00, 0x8b, 0x55, 0x00, 0x0f, 0xaf, 0xd1, 0x89, 0x55, 0x00} //checked
 
 #define ADD_PARAMETERS {0x01, 0x00}
 #define SUB_PARAMETERS {0x29, 0x00}
@@ -43,15 +43,19 @@ union InsideInt {
 static unsigned char* generatedInstructions;
 
 //Headers das operações aritméticas
-void operateVars(int lhs, int rhs, char op);
+void operate(char varp, int idx0, char varpc, int idx1, char operation);
+
+void operateVars(int lhs, int rhs, char operation);
 void addVars(int lhs, int rhs);
 void subVars(int lhs, int rhs);
 void mulVars(int lhs, int rhs);
 
+void operateParameters(int lhs, char operation);
 void addParameters(int lhs);
 void subParameters(int lhs);
 void mulParameters(int lhs);
 
+void operateVarParameter(int parameter, int var, int parameterReceives, char operation);
 void addVarParameter(int parameter, int var, int parameterReceives);
 void subVarParameter(int parameter, int var, int parameterReceives);
 void mulVarParameter(int parameter, int var, int parameterReceives);
@@ -65,21 +69,6 @@ void returnValue(int vpc, char type);
 
 void printInstruction(unsigned char first[], int number);
 void appendInstructions(unsigned char **currInstruction, unsigned char newInstruction[], int nInstructions);
-
-int main(void) {
-//    imull $256, %edi
-//    imull $256, %esi
-//    addl $256, %edi
-//    addl $256, %esi
-//    subl $256, %edi
-//    subl $256, %esi
-    operateConstParameter(1, 256, '*');
-    operateConstParameter(2, 256, '*');
-    operateConstParameter(1, 256, '+');
-    operateConstParameter(2, 256, '+');
-    operateConstParameter(1, 256, '-');
-    operateConstParameter(2, 256, '-');
-}
 
 funcp geraCodigo (FILE *f, unsigned char codigo[]) {
     unsigned char* currInstruction = codigo; //currInstruction vai apontar para o byte seguinte à última instrução adicionada
@@ -105,13 +94,12 @@ funcp geraCodigo (FILE *f, unsigned char codigo[]) {
                 if (fscanf(f, "%d %c= %c%d", &idx0, &op, &var1, &idx1) != 4)
                     exit(1);
                 printf("%d %c%d %c= %c%d\n", line, var0, idx0, op, var1, idx1);
-                switch(op) {
-                    case ':':
-                        //TODO: Inserir aqui função de atribuição
-                        break;
-                    default:
-                        break;
+                if (op == ':') {
+                    //TODO: Implementar operações de atribuição
+                } else {
+                    operate(var0, idx0, var1, idx1, op);
                 }
+                
                 break;
             }
             case 'i': { /* desvio condicional */
@@ -138,14 +126,37 @@ funcp geraCodigo (FILE *f, unsigned char codigo[]) {
 }
 
 
+//MARK: Operação aritmética geral
+void operate(char varp, int idx0, char varpc, int idx1, char operation) {
+    if (varp == 'v') {
+        if(varpc == 'p') {
+            operateVarParameter(idx1, idx0, FALSE, operation);
+        } else if (varpc == 'v') {
+            operateVars(idx0, idx1, operation);
+        } else {
+            operateConstVar(idx0, idx1, operation);
+        }
+    } else {
+        if(varpc == 'v') {
+            operateVarParameter(idx0, idx1, TRUE, operation);
+        } else if (varpc == 'p') {
+            operateParameters(idx0, operation);
+        } else {
+            operateConstParameter(idx0, idx1, operation);
+        }
+    }
+}
+
 //MARK: operações aritméticas variável-variável
 
-void operateVars(int lhs, int rhs, char op) {
-    switch (op) {
+void operateVars(int lhs, int rhs, char operation) {
+    switch (operation) {
         case '*':
             mulVars(lhs, rhs);
+            break;
         case '+':
             addVars(lhs, rhs);
+            break;
         case '-':
             subVars(lhs, rhs);
     }
@@ -222,6 +233,19 @@ void mulVars(int lhs, int rhs) {
 }
 
 //MARK: operações aritméticas parâmetro-variável
+
+void operateVarParameter(int parameter, int var, int parameterReceives, char operation) {
+    switch (operation) {
+        case '+':
+            addVarParameter(parameter, var, parameterReceives);
+            break;
+        case '-':
+            subVarParameter(parameter, var, parameterReceives);
+            break;
+        case '*':
+            mulVarParameter(parameter, var, parameterReceives);
+    }
+}
 
 /**
  Essa função gera o opcode correspondente a uma operação de soma entre uma variável local e um parâmetro
@@ -333,6 +357,19 @@ void mulVarParameter(int parameter, int var, int parameterReceives) {
 }
 
 //MARK: Operações aritméticas parâmetro-parâmetro
+
+void operateParameters(int lhs, char operation) {
+    switch (operation) {
+        case '+':
+            addParameters(lhs);
+            break;
+        case '-':
+            subParameters(lhs);
+            break;
+        case '*':
+            mulParameters(lhs);
+    }
+}
 
 void addParameters (int lhs) {
     unsigned char instructions[2] = ADD_PARAMETERS;
