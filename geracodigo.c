@@ -2,7 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include "geracodigo.h"
-
+/*
+ - traducao: OK
+ - esbocar pilha
+ - funcao em assembly
+ - dump: OK
+ - questao do trabalho: OK
+ - ligacao
+ */
 #define TRUE 1
 #define FALSE 0
 
@@ -41,14 +48,28 @@
 #define ATT_PARAM_TO_VAR {0x89, 0x7D, 0x00}
 #define ATT_CONST_TO_VAR {0xC7, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00}
 
-#define varIndexAsByte(index) (unsigned char)(-4 * index)
+//MARK: Opcodes de Desvio
+#define GO {0xE9, 0x00, 0x00, 0x00, 0x00}
 
-static unsigned char* currentInstruction;
+#define varIndexAsByte(index) (unsigned char)(-4 * index)
 
 union InsideInt {
     int i;
     unsigned char c[4];
 };
+
+struct goInstruction {
+    int from;
+    int to;
+};
+
+struct ifInstruction {
+    int from;
+    int toN1;
+    int toN2;
+};
+
+static unsigned char* currentInstruction;
 
 //Headers das operações aritméticas
 void operate(char varp, int idx0, char varpc, int idx1, char operation);
@@ -84,16 +105,26 @@ void attVarToVar(int lhs, int rhs);
 void attParamToVar(int lhs, int rhs);
 void attConstToVar(int lhs, int rhs);
 
+//Operações de Desvio
+void goOperation(int from, int to, int instructionPosition, struct goInstruction *goInstructions);
+void completeGoOperations(struct goInstruction *allInstructions, int *lineOffset, int nInstructions, unsigned char *codigo);
+
 //Auxiliares
 void printInstruction(unsigned char first[], int number);
 void appendInstructions(unsigned char **currInstruction, unsigned char newInstruction[], int nInstructions);
+int beginningOffset(int ofLine, int* array);
+int endingOffset(int ofLine, int* array);
+void printGoInstructions(struct goInstruction* goInstructions, int nGoInstructions);
 
 funcp geraCodigo (FILE *f, unsigned char codigo[]) {
+    struct goInstruction allGoInstructions[20];
     currentInstruction = codigo; //currInstruction vai apontar para o byte seguinte à última instrução adicionada
     unsigned char* lastInstruction = codigo;
     int line = 1;
     int  c;
-    int lineOperationSizes[20];
+    int lineOffset[20];
+    int nGoInstructions = 0;
+    lineOffset[0] = 0;
     while ((c = fgetc(f)) != EOF) {
         switch (c) {
             case 'r': { /* retorno */
@@ -134,15 +165,24 @@ funcp geraCodigo (FILE *f, unsigned char codigo[]) {
                 if (fscanf(f, "o %d", &n1) != 1)
                     exit(1);
                 printf("%d go %d\n", line, n1);
+                goOperation(line, n1, nGoInstructions, &allGoInstructions);
+                nGoInstructions += 1;
                 break;
             }
             default:  exit(1);
         }
-        lineOperationSizes[line - 1] = (long)currentInstruction - (long)lastInstruction;
+        if(line != 20) {
+            lineOffset[line] = (int)((long)currentInstruction - (long)lastInstruction);
+            lineOffset[line] += lineOffset[line - 1];
+        }
         lastInstruction = currentInstruction;
         line ++;
         fscanf(f, " ");
     }
+    printGoInstructions(allGoInstructions, nGoInstructions);
+    printInstruction(codigo, 42);
+    completeGoOperations(allGoInstructions, lineOffset, nGoInstructions, codigo);
+    printInstruction(codigo, 42);
     return 0;
 }
 
@@ -459,7 +499,7 @@ void operateConstParameter(int p, int c, char operation) {
 //MARK: Operações Variável-Constante
 
 void operateConstVar(int v, int c, char operation) {
-    int i, offset;
+    int i, beginningOffset;
     union InsideInt inside;
     unsigned char *instructions;
     unsigned char addSubOperations[7] = ADD_CONST_VAR;
@@ -470,16 +510,16 @@ void operateConstVar(int v, int c, char operation) {
         instructions = addSubOperations;
         instructions[1] = (operation == '+') ? 0x45 : 0x6D;
         instructions[2] = (unsigned char)(-4 * v);
-        offset = 3;
+        beginningOffset = 3;
     } else if (operation == '*') {
         instructions = mulOperations;
         instructions[11] = (unsigned char)(-4 * v);
         instructions[2] = (unsigned char)(-4 * v);
-        offset = 5;
+        beginningOffset = 5;
     }
     
     for (i = 0; i < 4; i++) {
-        instructions[i + offset] = inside.c[i];
+        instructions[i + beginningOffset] = inside.c[i];
     }
     printInstruction(instructions, (operation == '*') ? 12 : 7);
     appendInstructions(&currentInstruction, instructions, (operation == '*') ? 12 : 7);
@@ -602,6 +642,34 @@ void returnValue(int vpc, char type) {
     appendInstructions(&currentInstruction, instructions, instructionSize);
 }
 
+//MARK: Operações de Desvio
+void goOperation(int from, int to, int instructionPosition, struct goInstruction *goInstructions) {
+    unsigned char instructions[5] = GO;
+    struct goInstruction currGo;
+    currGo.from = from; currGo.to = to;
+    goInstructions[instructionPosition] = currGo;
+    printInstruction(instructions, 5);
+    appendInstructions(&currentInstruction, instructions, 5);
+}
+
+void completeGoOperation(struct goInstruction instruction, int *lineOffset, unsigned char *codigo) {
+    union InsideInt inside;
+    int from = instruction.from;
+    int to = instruction.to;
+    unsigned char *instructionPointer = codigo + lineOffset[from-1] + 1;
+    inside.i = lineOffset[to-1] - lineOffset[from-1] - 5;
+    for(int i = 0; i < 4; i++) {
+        instructionPointer[i] = inside.c[i];
+    }
+}
+
+void completeGoOperations(struct goInstruction *allInstructions, int *lineOffset, int nInstructions, unsigned char *codigo) {
+    int i;
+    for(i = 0; i < nInstructions; i++) {
+        completeGoOperation(allInstructions[i], lineOffset, codigo);
+    }
+}
+
 //MARK: Demais auxiliares
 
 void appendInstructions(unsigned char **currInstruction, unsigned char newInstruction[], int nInstructions) {
@@ -620,3 +688,24 @@ void printInstruction(unsigned char first[], int number) {
     }
     printf("}\n");
 }
+
+void printGoInstructions(struct goInstruction* goInstructions, int nGoInstructions) {
+    for(int i = 0; i < nGoInstructions; i++) {
+        printf("Go Instruction %d\n", i + 1);
+        printf("From %d To %d\n\n", goInstructions[i].from, goInstructions[i].to);
+    }
+}
+
+int beginningOffset(int ofLine, int* array) {
+    if (ofLine == 1) {
+        return 0;
+    } else {
+        return array[0] + beginningOffset(ofLine - 1, array + 1);
+    }
+}
+
+int endingOffset(int ofLine, int* array) {
+    return beginningOffset(ofLine, array) + array[ofLine - 1];
+}
+
+
