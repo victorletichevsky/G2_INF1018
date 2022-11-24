@@ -51,6 +51,9 @@
 //MARK: Opcodes de Desvio
 #define GO {0xE9, 0x00, 0x00, 0x00, 0x00}
 
+#define IF_PARAM {0x83, 0xfe, 0x00, 0x74, 0x09, 0x7c, 0x02, 0xeb, 0x0a, 0xe9, 0x00, 0x00, 0x00, 0x00, 0xe9, 0x00, 0x00, 0x00, 0x00}
+#define IF_VAR {0x83, 0x7D, 0x00, 0x00, 0x74, 0x09, 0x7c, 0x02, 0xeb, 0x0a, 0xe9, 0x00, 0x00, 0x00, 0x00, 0xe9, 0x00, 0x00, 0x00, 0x00}
+
 #define varIndexAsByte(index) (unsigned char)(-4 * index)
 
 union InsideInt {
@@ -65,8 +68,9 @@ struct goInstruction {
 
 struct ifInstruction {
     int from;
-    int toN1;
-    int toN2;
+    int n1;
+    int n2;
+    int isVar;
 };
 
 static unsigned char* currentInstruction;
@@ -105,9 +109,13 @@ void attVarToVar(int lhs, int rhs);
 void attParamToVar(int lhs, int rhs);
 void attConstToVar(int lhs, int rhs);
 
-//Operações de Desvio
+//Desvio Incondicional
 void goOperation(int from, int to, int instructionPosition, struct goInstruction *goInstructions);
 void completeGoOperations(struct goInstruction *allInstructions, int *lineOffset, int nInstructions, unsigned char *codigo);
+
+//Desvio Condicional
+void ifOperation(char c, int idx0, int from, int n1, int n2, int instructionPosition, struct ifInstruction *ifInstructions);
+void completeIfOperations(struct ifInstruction *allInstructions, int *lineOffset, int nInstructions, unsigned char *codigo);
 
 //Auxiliares
 void printInstruction(unsigned char first[], int number);
@@ -118,12 +126,13 @@ void printGoInstructions(struct goInstruction* goInstructions, int nGoInstructio
 
 funcp geraCodigo (FILE *f, unsigned char codigo[]) {
     struct goInstruction allGoInstructions[20];
+    struct ifInstruction allIfInstructions[20];
     currentInstruction = codigo; //currInstruction vai apontar para o byte seguinte à última instrução adicionada
     unsigned char* lastInstruction = codigo;
     int line = 1;
     int  c;
     int lineOffset[20];
-    int nGoInstructions = 0;
+    int nGoInstructions = 0, nIfInstructions = 0;
     lineOffset[0] = 0;
     while ((c = fgetc(f)) != EOF) {
         switch (c) {
@@ -158,6 +167,9 @@ funcp geraCodigo (FILE *f, unsigned char codigo[]) {
                 if (fscanf(f, "f %c%d %d %d", &var0, &idx0, &n1, &n2) != 4)
                     exit(1);
                 printf("%d if %c%d %d %d\n", line, var0, idx0, n1, n2);
+                //MARK: Terminar essa chamada
+                ifOperation(var0, idx0, line, n1, n2, nIfInstructions, allIfInstructions);
+                nIfInstructions += 1;
                 break;
             }
             case 'g': { /* desvio incondicional */
@@ -180,9 +192,10 @@ funcp geraCodigo (FILE *f, unsigned char codigo[]) {
         fscanf(f, " ");
     }
     printGoInstructions(allGoInstructions, nGoInstructions);
-    printInstruction(codigo, 42);
+    printInstruction(codigo, 65);
     completeGoOperations(allGoInstructions, lineOffset, nGoInstructions, codigo);
-    printInstruction(codigo, 42);
+    completeIfOperations(allIfInstructions, lineOffset, nIfInstructions, codigo);
+    printInstruction(codigo, 65);
     return 0;
 }
 
@@ -642,7 +655,7 @@ void returnValue(int vpc, char type) {
     appendInstructions(&currentInstruction, instructions, instructionSize);
 }
 
-//MARK: Operações de Desvio
+//MARK: Desvio Incondicional
 void goOperation(int from, int to, int instructionPosition, struct goInstruction *goInstructions) {
     unsigned char instructions[5] = GO;
     struct goInstruction currGo;
@@ -667,6 +680,65 @@ void completeGoOperations(struct goInstruction *allInstructions, int *lineOffset
     int i;
     for(i = 0; i < nInstructions; i++) {
         completeGoOperation(allInstructions[i], lineOffset, codigo);
+    }
+}
+
+//MARK: Desvio Condicional
+
+void completeIfOperation(struct ifInstruction instruction, int *lineOffset, unsigned char* codigo) {
+    union InsideInt inside1, inside2;
+    int from = instruction.from;
+    int n1 = instruction.n1;
+    int n2 = instruction.n2;
+    int isVar = instruction.isVar;
+    unsigned char *n1Pointer = codigo + lineOffset[from-1] + 10 + isVar;
+    unsigned char *n2Pointer = codigo + lineOffset[from-1] + 15 + isVar;
+    inside1.i = lineOffset[n1-1] - lineOffset[from-1] - 14 - isVar;
+    inside2.i = lineOffset[n2-1] - lineOffset[from-1] - 19 - isVar;
+    for (int j = 0; j < 4; j++) {
+        n1Pointer[j] = inside1.c[j];
+        n2Pointer[j] = inside2.c[j];
+    }
+}
+
+void completeIfOperations(struct ifInstruction *allInstructions, int *lineOffset, int nInstructions, unsigned char *codigo) {
+    int i;
+    for(i = 0; i < nInstructions; i++) {
+        completeIfOperation(allInstructions[i], lineOffset, codigo);
+    }
+}
+
+void ifOperationParameter(int idx0, int from, int n1, int n2, int instructionPosition, struct ifInstruction *ifInstructions){
+    unsigned char instructions[19] = IF_PARAM;
+    instructions[1] = (idx0 == 1) ? 0xFF : 0xFE;
+    struct ifInstruction currIf;
+    currIf.from = from;
+    currIf.n1 = n1;
+    currIf.n2 = n2;
+    currIf.isVar = FALSE;
+    ifInstructions[instructionPosition] = currIf;
+    printInstruction(instructions, 19);
+    appendInstructions(&currentInstruction, instructions, 19);
+}
+
+void ifOperationVar(int idx0, int from, int n1, int n2, int instructionPosition, struct ifInstruction *ifInstructions) {
+    unsigned char instructions[20] = IF_VAR;
+    instructions[2] = (unsigned char)(-4 * idx0);
+    struct ifInstruction currIf;
+    currIf.from = from;
+    currIf.n1 = n1;
+    currIf.n2 = n2;
+    currIf.isVar = TRUE;
+    ifInstructions[instructionPosition] = currIf;
+    printInstruction(instructions, 20);
+    appendInstructions(&currentInstruction, instructions, 20);
+}
+
+void ifOperation(char c, int idx0, int from, int n1, int n2, int instructionPosition, struct ifInstruction *ifInstructions) {
+    if (c == 'p') {
+        ifOperationParameter(idx0, from, n1, n2, instructionPosition, ifInstructions);
+    } else {
+        ifOperationVar(idx0, from, n1, n2, instructionPosition, ifInstructions);
     }
 }
 
