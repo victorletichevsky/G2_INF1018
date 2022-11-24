@@ -2,14 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "geracodigo.h"
-/*
- - traducao: OK
- - esbocar pilha
- - funcao em assembly
- - dump: OK
- - questao do trabalho: OK
- - ligacao
- */
+
 #define TRUE 1
 #define FALSE 0
 
@@ -141,7 +134,6 @@ funcp geraCodigo (FILE *f, unsigned char codigo[]) {
                 int idx0;
                 if (fscanf(f, "et %c%d", &var0, &idx0) != 2)
                     exit(1);
-                printf("%d ret %c%d\n", line, var0, idx0);
                 returnValue(idx0, var0);
                 break;
             }
@@ -152,7 +144,6 @@ funcp geraCodigo (FILE *f, unsigned char codigo[]) {
                 
                 if (fscanf(f, "%d %c= %c%d", &idx0, &op, &var1, &idx1) != 4)
                     exit(1);
-                printf("%d %c%d %c= %c%d\n", line, var0, idx0, op, var1, idx1);
                 if (op == ':') {
                     attribute(var0, idx0, var1, idx1);
                 } else {
@@ -166,7 +157,6 @@ funcp geraCodigo (FILE *f, unsigned char codigo[]) {
                 int idx0, n1, n2;
                 if (fscanf(f, "f %c%d %d %d", &var0, &idx0, &n1, &n2) != 4)
                     exit(1);
-                printf("%d if %c%d %d %d\n", line, var0, idx0, n1, n2);
                 //MARK: Terminar essa chamada
                 ifOperation(var0, idx0, line, n1, n2, nIfInstructions, allIfInstructions);
                 nIfInstructions += 1;
@@ -176,7 +166,6 @@ funcp geraCodigo (FILE *f, unsigned char codigo[]) {
                 int n1;
                 if (fscanf(f, "o %d", &n1) != 1)
                     exit(1);
-                printf("%d go %d\n", line, n1);
                 goOperation(line, n1, nGoInstructions, &allGoInstructions);
                 nGoInstructions += 1;
                 break;
@@ -191,11 +180,9 @@ funcp geraCodigo (FILE *f, unsigned char codigo[]) {
         line ++;
         fscanf(f, " ");
     }
-    printGoInstructions(allGoInstructions, nGoInstructions);
-    printInstruction(codigo, 65);
     completeGoOperations(allGoInstructions, lineOffset, nGoInstructions, codigo);
     completeIfOperations(allIfInstructions, lineOffset, nIfInstructions, codigo);
-    printInstruction(codigo, 65);
+    printInstruction(codigo, 80);
     return 0;
 }
 
@@ -282,7 +269,6 @@ void subVars(int lhs, int rhs) {
     added *= -4;
     instructions[5] = receiver;
     instructions [2] = added;
-    printInstruction(instructions, 6);
     appendInstructions(&currentInstruction, instructions, 6);
 }
 
@@ -305,7 +291,6 @@ void mulVars(int lhs, int rhs) {
     instructions[11] = receiver;
     instructions[5] = receiver;
     instructions[2] = added;
-    printInstruction(instructions, 12);
     appendInstructions(&currentInstruction, instructions, 12);
 }
 
@@ -354,7 +339,6 @@ void addVarParameter(int parameter, int var, int parameterReceives) {
     
     //definindo o terceiro byte da instrução
     instructions[2] = (unsigned char)(-4 * var);
-    printInstruction(instructions, 3);
     appendInstructions(&currentInstruction, instructions, 3);
 }
 
@@ -388,7 +372,6 @@ void subVarParameter(int parameter, int var, int parameterReceives) {
     
     //definindo o último byte da instrução
     instructions[2] = (unsigned char)(-4 * var);
-    printInstruction(instructions, 3);
     appendInstructions(&currentInstruction, instructions, 3);
 }
 
@@ -430,7 +413,6 @@ void mulVarParameter(int parameter, int var, int parameterReceives) {
         instructions[2] = instructions[8] = (unsigned char)(-4 * var);
         instructions[5] = (parameter == 1) ? 0xCF : 0xCE;
     }
-    printInstruction(instructions, parameterReceives ? 4 : 9);
     appendInstructions(&currentInstruction, instructions, parameterReceives ? 4 : 9);
     
 }
@@ -457,7 +439,6 @@ void addParameters (int lhs, int rhs) {
     } else {
         instructions[1] = (rhs == 1) ? 0xFE : 0xF6;
     }
-    printInstruction(instructions, 2);
     appendInstructions(&currentInstruction, instructions, 2);
 }
 
@@ -468,7 +449,6 @@ void subParameters(int lhs, int rhs) {
     } else {
         instructions[1] = (rhs == 1) ? 0xFE : 0xF6;
     }
-    printInstruction(instructions, 2);
     appendInstructions(&currentInstruction, instructions, 2);
 }
 
@@ -479,7 +459,6 @@ void mulParameters(int lhs, int rhs) {
     } else {
         instructions[2] = (rhs == 1) ? 0xF7 : 0xF6;
     }
-    printInstruction(instructions, 3);
     appendInstructions(&currentInstruction, instructions, 3);
 }
 
@@ -504,7 +483,6 @@ void operateConstParameter(int p, int c, char operation) {
     for(i = 0; i < 4; i++) {
         instructions[i + 2] = inside.c[i];
     }
-    printInstruction(instructions, 6);
     appendInstructions(&currentInstruction, instructions, 6);
 }
 
@@ -534,7 +512,6 @@ void operateConstVar(int v, int c, char operation) {
     for (i = 0; i < 4; i++) {
         instructions[i + beginningOffset] = inside.c[i];
     }
-    printInstruction(instructions, (operation == '*') ? 12 : 7);
     appendInstructions(&currentInstruction, instructions, (operation == '*') ? 12 : 7);
 }
 
@@ -564,7 +541,6 @@ void attVarToParam(int param, int var) {
     unsigned char instructions[3] = ATT_VAR_TO_PARAM;
     instructions[2] = (unsigned char)(-4 * var);
     instructions[1] = (param == 1) ? 0x7D : 0x75;
-    printInstruction(instructions, 3);
     appendInstructions(&currentInstruction, instructions, 3);
 }
 
@@ -575,7 +551,6 @@ void attParamToParam(int lhs, int rhs) {
     } else {
         instructions[1] = (rhs == 1) ? 0xFE : 0xF6;
     }
-    printInstruction(instructions, 2);
     appendInstructions(&currentInstruction, instructions, 2);
 }
 
@@ -588,7 +563,6 @@ void attConstToParam(int param, int c) {
     for (i = 0; i < 4; i++) {
         instructions[i + 1] = inside.c[i];
     }
-    printInstruction(instructions, 5);
     appendInstructions(&currentInstruction, instructions, 5);
 }
 
@@ -596,7 +570,6 @@ void attVarToVar(int lhs, int rhs) {
     unsigned char instructions[6] = ATT_VAR_TO_VAR;
     instructions[2] = (unsigned char)(-4 * rhs);
     instructions[5] = (unsigned char)(-4 * lhs);
-    printInstruction(instructions, 6);
     appendInstructions(&currentInstruction, instructions, 6);
 }
 
@@ -604,7 +577,6 @@ void attParamToVar(int var, int param) {
     unsigned char instructions[3] = ATT_PARAM_TO_VAR;
     instructions[1] = (param == 1) ? 0x7D : 0x75;
     instructions[2] = (unsigned char)(-4 * var);
-    printInstruction(instructions, 3);
     appendInstructions(&currentInstruction, instructions, 3);
 }
 
@@ -617,7 +589,6 @@ void attConstToVar(int var, int c) {
     for(i = 0; i < 7; i++) {
         instructions[3 + i] = inside.c[i];
     }
-    printInstruction(instructions, 7);
     appendInstructions(&currentInstruction, instructions, 7);
 }
 
@@ -651,7 +622,6 @@ void returnValue(int vpc, char type) {
             }
             break;
     }
-    printInstruction(instructions, instructionSize);
     appendInstructions(&currentInstruction, instructions, instructionSize);
 }
 
@@ -661,7 +631,6 @@ void goOperation(int from, int to, int instructionPosition, struct goInstruction
     struct goInstruction currGo;
     currGo.from = from; currGo.to = to;
     goInstructions[instructionPosition] = currGo;
-    printInstruction(instructions, 5);
     appendInstructions(&currentInstruction, instructions, 5);
 }
 
@@ -717,7 +686,6 @@ void ifOperationParameter(int idx0, int from, int n1, int n2, int instructionPos
     currIf.n2 = n2;
     currIf.isVar = FALSE;
     ifInstructions[instructionPosition] = currIf;
-    printInstruction(instructions, 19);
     appendInstructions(&currentInstruction, instructions, 19);
 }
 
@@ -730,7 +698,6 @@ void ifOperationVar(int idx0, int from, int n1, int n2, int instructionPosition,
     currIf.n2 = n2;
     currIf.isVar = TRUE;
     ifInstructions[instructionPosition] = currIf;
-    printInstruction(instructions, 20);
     appendInstructions(&currentInstruction, instructions, 20);
 }
 
@@ -752,7 +719,7 @@ void appendInstructions(unsigned char **currInstruction, unsigned char newInstru
     *currInstruction += nInstructions;
 }
 
-void printInstruction(unsigned char first[], int number) {
+void printInstruction(unsigned char first[], int number){
     printf("{");
     for (int i = 0; i < number; i++) {
         printf("%02X", first[i]);
