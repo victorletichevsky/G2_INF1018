@@ -5,9 +5,9 @@ compile: geracodigo.o main.o programa.txt
 
 test: geracodigo.o main.o
 	clear
-	gcc -Wall -o main geracodigo.o main.o
-	./main samples/p1.txt
-	./main samples/p2.txt
-	./main samples/p3.txt
-	./main samples/p4.txt
-	./main samples/p5.txt
+	gcc -Wall -Wa,--execstack -o main geracodigo.o main.o
+	./main samples/p1.txt 10
+	./main samples/p2.txt 0
+	./main samples/p3.txt 10 20
+	./main samples/p4.txt 10
+	./main samples/p5.txt 5

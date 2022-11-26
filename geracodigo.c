@@ -140,7 +140,7 @@ funcp geraCodigo (FILE *f, unsigned char codigo[]) {
                 int n1;
                 if (fscanf(f, "o %d", &n1) != 1)
                     exit(1);
-                goOperation(line, n1, nGoInstructions, &allGoInstructions);
+                goOperation(line, n1, nGoInstructions, allGoInstructions);
                 nGoInstructions += 1;
                 break;
             }

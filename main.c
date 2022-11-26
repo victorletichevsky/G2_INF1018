@@ -12,10 +12,19 @@ static void error (const char *msg, int line) {
 
 int main (int argc, char *argv[]) {
     FILE *myfp;
+    funcp f;
+    int arg1 = 0, arg2 = 0;
     
     if (argc != 2){
         fprintf(stderr, "uso do programa: ./main <nome do programa SB>\n");
         exit(1);
+    }
+    
+    if(argc > 2) {
+        arg1 = atoi(argv[2]);
+    }
+    if(argc > 3){
+        arg2 = atoi(argv[3]);
     }
     
     unsigned char* codigo = (unsigned char*)( malloc( 300 * sizeof(unsigned char) ) );
@@ -25,6 +34,6 @@ int main (int argc, char *argv[]) {
         exit(1);
     }
     
-    codigo = geraCodigo(myfp, codigo);
-    printInstruction(codigo, 80);
+    f = geraCodigo(myfp, codigo);
+    printf("resultado: %d\n", (*f)(arg1, arg2));
 }
